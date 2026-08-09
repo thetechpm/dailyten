@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Daily Ten</title>
+<link rel="icon" href="data:," />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+function makeIcon(glyph) {
+  return function IconComp({ size = 16, color, style = {} }) {
+    return <span style={{ fontSize: size, lineHeight: 1, color, display: "inline-block", ...style }}>{glyph}</span>;
+  };
+}
+const Plus = makeIcon("+");
+const Search = makeIcon("🔍");
+const ChevronDown = makeIcon("▾");
+const ChevronRight = makeIcon("▸");
+const XIcon = makeIcon("✕");
+const Pencil = makeIcon("✎");
+const Trash2 = makeIcon("🗑");
+const Copy = makeIcon("📋");
+const Check = makeIcon("✓");
+const Gamepad2 = makeIcon("🎮");
+const Moon = makeIcon("🌙");
+
+// --- fill these in once, after creating the GitHub App and deploying the Worker ---
+const GITHUB_CLIENT_ID = "REPLACE_WITH_YOUR_CLIENT_ID";
+const WORKER_URL = "https://REPLACE.workers.dev";
+const REDIRECT_URI = "https://dailyten.win/";
+// -----------------------------------------------------------------------------
+const COLORS = {
+  bg: "#161719",
+  panel: "#1E2024",
+  panelBorder: "#2C2F36",
+  field: "#26292F",
+  green: "#2FD16B",
+  red: "#EF4444",
+  blue: "#3B82F6",
+  yellow: "#F2C94C",
+  onGreen: "#08210F",
+  onYellow: "#2B2200",
+  onBlue: "#F5F8FF",
+  textMuted: "#8B8F98",
+  textLight: "#ECEDEF",
+};
+
+const FORMS_DEFAULT = [
+  "Escape room", "Puzzle", "Platformer", "RPG", "Deckbuilder", "Card game",
+  "Party game", "Idle/incremental", "Rhythm", "Tower defense", "Racing",
+  "Trivia", "Walking sim", "Tabletop", "Toy", "Simulator",
+];
+const THEMES_DEFAULT = [
+  "Dogs", "Birds", "Animals", "Insects", "Ocean", "Plants", "Cryptids",
+  "Ghosts", "Monsters", "Gods & myth", "Fairytale", "Magic", "Dreams & sleep",
+  "Domestic life", "Food", "Weather", "Space", "Death", "Time", "Language",
+  "Art & color", "Music & sound", "Heroes & crime", "Ancient history",
+  "Architecture", "Identity",
+];
+const PLAYERS_DEFAULT = ["Solo", "Co-op", "Competitive", "Async", "Party"];
+
+// Imported from the Notion table: [creditedDate, text, form, theme]
+const IMPORTED = [
+  ["2026-07-30", "Caterpillar platformer where the caterpillar eats and grows their way into being a butterfly and escaping", "Platformer", "Insects"],
+  ["2026-07-30", "You are a dog and are trying to see how fast you can tear apart your toys.", "Toy", "Dogs"],
+  ["2026-07-30", "Chickadee trying to out maneuver a bunch of big birds to get to a bird feeder", "Platformer", "Birds"],
+  ["2026-07-30", "You are a house and are trying to keep a family with you as long as possible.", "Simulator", "Domestic life"],
+  ["2026-07-30", "Digger game where you are trying to reach the other side of the world and come across all sorts of weird creatures", "Simulator", "Monsters"],
+  ["2026-07-30", "Sims but a pseudo card game where you only have five possible random actions you can choose from", "Card game", "Domestic life"],
+  ["2026-07-30", "Food art party game. Everyone gets a set of food like carrots, mashed potatoes and peas, and has to try and illustrate a prompt. Like apples to apples but with actual apples.", "Party game", "Food"],
+  ["2026-07-30", "Escape room game. You see a beautiful world outside through a window, but when you get out you realize it was an illusion, and there's a bigger and bigger room to escape until you're floating in the void/space.", "Escape room", "Space"],
+  ["2026-07-30", "Bird Poop Hero. Strategically poop on bad guys to save the innocents during a crime or to hinder them when the police are chasing.", "Platformer", "Heroes & crime"],
+  ["2026-07-30", "You are a baby loon trying to escape a large bird of prey. Use your skills of diving underwater and smaller size to out maneuver the foe.", "Platformer", "Birds"],
+  ["2026-07-31", "Playing house. Players all get randomly assigned a role and have hidden objectives.", "Party game", "Domestic life"],
+  ["2026-07-31", "You play as a hieroglyphic person trying to escape the wall.", "Puzzle", "Ancient history"],
+  ["2026-07-31", "Slay the Spire but Pokemon. Moveset deck instead of always having the ability to do four.", "Deckbuilder", "Monsters"],
+  ["2026-07-31", "Dog trying to take a human to safety during an apocalypse. Dog character creator.", "RPG", "Dogs"],
+  ["2026-07-31", "Red light, green light but with a TRex", "Party game", "Animals"],
+  ["2026-07-31", "Fetch with a dog but you're an alien with telekinesis.", "Toy", "Dogs"],
+  ["2026-07-31", "Hangman but a card game, and you're trying to choose the letters that aren't there.", "Card game", "Language"],
+  ["2026-07-31", "Speed spot the imposter. But with ditto creatures that almost match but have a tell.", "Party game", "Monsters"],
+  ["2026-07-31", "Game where you have to organize a house while a cat and/or ghost try to knock things down.", "Puzzle", "Ghosts"],
+  ["2026-07-31", "Defender on the shore of the Styx, trying to bop the souls back into the river.", "Tower defense", "Death"],
+  ["2026-08-01", "Pokemon but the player is a dog sending their humans out to battle against the daily struggles of life.", "RPG", "Dogs"],
+  ["2026-08-01", "Panic attack simulator. Seemingly trivial tasks that you have to complete and you choose the style of panic attack before starting.", "Simulator", "Identity"],
+  ["2026-08-01", "A crab trying to ping obstacles and predators to help sea turtles get to the water.", "Puzzle", "Ocean"],
+  ["2026-08-01", "Rhythm game but with bottles you need to blow into.", "Rhythm", "Music & sound"],
+  ["2026-08-01", "Cloud sculpting, but you're a biblical angel and have to keep batting your wings to reach the clouds.", "Simulator", "Gods & myth"],
+  ["2026-08-01", "You are a puppy trying to sneak up to snuggle a grouchy old cat.", "Puzzle", "Dogs"],
+  ["2026-08-01", "Two player game where one is running a haunted house and the other is going through it.", "Party game", "Ghosts"],
+  ["2026-08-01", "Game where you're a god and the only way you can interact with the world to help the people survive is through natural disasters. Like Sim City except you're trying to help them flourish and not go extinct through the positives of the disasters.", "Simulator", "Gods & myth"],
+  ["2026-08-01", "A game where you are expected to die a lot, but your deaths leave ghosts. Some help you and some hurt you.", "Platformer", "Ghosts"],
+  ["2026-08-01", "RPG where you start with four party members. You're the only one who recovers health. You can give bits of your health to other members, but the fuller your party, the slower you recover.", "RPG", "Identity"],
+  ["2026-08-02", "Monster tea party. Have to find the teas and treats each monster likes best.", "Puzzle", "Monsters"],
+  ["2026-08-02", "You have to do a grocery run but your goal is to have the least interaction possible. Every time someone notices you or tries to interact with you, you lose some of your social battery.", "Simulator", "Identity"],
+  ["2026-08-02", "Nap simulator. Change conditions to try and optimize your nap.", "Simulator", "Dreams & sleep"],
+  ["2026-08-02", "An alchemy game where the rules seem so different and random at first but you discover unexpected patterns.", "Puzzle", "Magic"],
+  ["2026-08-02", "You're driving a speed boat and trying to knock off tubers as fast as possible. But there's a hidden mission to actually just make it as exciting and as fun as possible for the tubers.", "Racing", "Ocean"],
+  ["2026-08-02", "Sailboat designer. Then you watch it sail off into the sunset.", "Toy", "Ocean"],
+  ["2026-08-02", "You're a derpy ibis trying to get worms from the ground.", "Toy", "Birds"],
+  ["2026-08-02", "You can choose money, knowledge, or people as a winning strategy but each has its drawbacks and the more people choose it the less power you have through it.", "Party game", "Identity"],
+  ["2026-08-02", "You're a husband/wife desperately looking for their lost wedding ring before your spouse finds out.", "Puzzle", "Domestic life"],
+  ["2026-08-02", "Musical chairs, but it's you against your dogs.", "Party game", "Dogs"],
+  ["2026-08-03", "Cryptid driving game. You see from your windshield, driving at night and have to not hit cryptids crossing your path.", "Racing", "Cryptids"],
+  ["2026-08-03", "You are a squirrel trying to get through increasingly complex obstacles to get to a bird feeder.", "Platformer", "Animals"],
+  ["2026-08-03", "Simon says but with dogs.", "Party game", "Dogs"],
+  ["2026-08-03", "You are a hive mind of termites and need to destroy the building before the pest control get you.", "Simulator", "Insects"],
+  ["2026-08-03", "You're a suit of armor trying to get through a castle to the treasure room without getting caught.", "Platformer", "Ancient history"],
+  ["2026-08-03", "You're a dog therapist and have to help dogs solve their doggy problems.", "Simulator", "Dogs"],
+  ["2026-08-03", "Design an alien. Depending on how cute/scary it is, people of the invaded world react differently.", "Toy", "Space"],
+  ["2026-08-03", "Jousting but with sea horses and underwater.", "Party game", "Ocean"],
+  ["2026-08-03", "A spot the difference escape room.", "Escape room", "Art & color"],
+  ["2026-08-03", "A villain is stealing words. Every time they face you, they steal a word from you and no one in that world including NPCs can say or perceive that word (becomes garbles or corrupted text).", "RPG", "Language"],
+  ["2026-08-04", "An incremental tower defense game, but you're building a sand castle that can fend off small children.", "Tower defense", "Architecture"],
+  ["2026-08-04", "A platformer where you have to use different paints to solve puzzles. But each paints stays on you through the rest of the game as a symbol of how we carry our past and experiences with us.", "Platformer", "Art & color"],
+  ["2026-08-04", "An idle game like cookie clicker except you run a maple syrup producer. So you start with one tree that gives you a few drops every minute.", "Idle/incremental", "Food"],
+  ["2026-08-04", "A trivia game with song lyric quotes and you have to guess the correct missing word from a list. And each correct answer gives you a word to a meta lyrics to answer to win the game.", "Trivia", "Music & sound"],
+  ["2026-08-04", "Starts off as an ant farm simulator but the ant civilization starts evolving rapidly and you have to choose between assisting them or destroying them before it's too late.", "Simulator", "Insects"],
+  ["2026-08-04", "Click based jump rope game. But the jump ropes are made of spikes, fire, and plasma and other dangerous things.", "Platformer", "Domestic life"],
+  ["2026-08-04", "A game where you stack cards into pretty towers and you get to have the fun of knocking it down after every turn.", "Card game", "Architecture"],
+  ["2026-08-04", "Yu gi oh but paint by numbers. A game where you need to quickly do a small paint by numbers to unleash the monster on your card.", "Card game", "Art & color"],
+  ["2026-08-04", "8 seg lights that blink quickly in an order. First it's a single letter. Then you need to try and follow along and guess for an entire word.", "Puzzle", "Language"],
+  ["2026-08-04", "Restricted drawing guessing game. Like pictionary, but have to draw a card with a curse and you get all sorts of weird restrictions like number of lines, draw with other hand, draw with eyes closed, etc.", "Party game", "Art & color"],
+  ["2026-08-05", "A game where you have to phase between dimensions to move past puzzles and make progress. Moving in one world moves you in the other, and your direction and velocity are maintained.", "Puzzle", "Magic"],
+  ["2026-08-05", "You're a fall god/goddess and have to paint the forest with colors.", "Toy", "Art & color"],
+  ["2026-08-05", "You're a druid and have to shape shift as different animals to traverse a dangerous landscape without being noticed by the humans or animals. At first, maybe going under water is safe for transforming, but then there's more aquatic wildlife and you have to cause distractions so that you're not seen.", "RPG", "Animals"],
+  ["2026-08-05", "King of the dog park. Chase, growl, and hump your way to dog park royalty.", "Party game", "Dogs"],
+  ["2026-08-05", "An RPG but you're a mouse in a mansion just trying to find your way to the kitchen and fridge for cheese. You have to face bosses like the cat, a robot vacuum, and finally a pest control to claim your prize.", "RPG", "Animals"],
+  ["2026-08-05", "Starts as a faming sim, but you can control the weather. You've been exiled from a long line of cloudmancers and now you just want a simple life growing veggies, but when you draw too much attention with your weather patterns and prosperous farm, trouble finds you!", "Simulator", "Weather"],
+  ["2026-08-05", "You're a dandelion. After a strong gust of wind scatters you from your home, you go on an adventure trying to find a new place to take root.", "Platformer", "Plants"],
+  ["2026-08-05", "An escape room, but you're stuck with NPCs who are aggressively NPC looping and glitching and you have to figure out why and return them to normal to escape.", "Escape room", "Identity"],
+  ["2026-08-05", "An RPG where typing the true name of the monster weakens it or exposes a weakness. Maybe typing the type of creature/monster enables you to see their name. But it costs you time/turns while you are being attacked.", "RPG", "Language"],
+  ["2026-08-05", "Pokemon snap but for cryptids and supernatural. Cute and safe.", "Simulator", "Cryptids"],
+  ["2026-08-06", "You're a guardian angel, but a biblically accurate angel. And have to use your horrifying appearance to protect and improve your charge's life.", "Simulator", "Gods & myth"],
+  ["2026-08-06", "Game where you can reverse the last 15 seconds at any point to solve puzzles and fight monsters.", "Puzzle", "Time"],
+  ["2026-08-06", "Platformer where the monsters' locations are tied to your location, so you can step back and force them to step back.", "Platformer", "Monsters"],
+  ["2026-08-06", "It's a puzzle game. And it starts out with just a single circle on a black screen.", "Puzzle", "Art & color"],
+  ["2026-08-06", "A game about balancing a scale, but every stage gets more and more ridiculous with the size of things you've comparing until you're weighing multiple black holes.", "Puzzle", "Space"],
+  ["2026-08-06", "You have to blow out birthday cake candles, but it's individual candle and you have to do it all in one breath. Each \"year\" gets more complex. Early and late on your breath capacity is shit, but maybe you get other abilities as you age.", "Toy", "Time"],
+  ["2026-08-06", "Do you want pie? You have to divide slices of pie as close to even as possible for the number of people requesting. They don't have to be normal slices but the area/volume has to be as similar as possible across the slices.", "Puzzle", "Food"],
+  ["2026-08-06", "Tic tac toe but you're trying to build a bridge across a chasm in a war setting to get to the other side first.", "Tabletop", "Architecture"],
+  ["2026-08-06", "Tic Tac Toe but your pieces have hidden conditions that can cause them to either flip or flip your opponents pieces to your side.", "Tabletop", "Identity"],
+  ["2026-08-06", "Apples to apples but you have a limited time to draw a response that answers a question and the judge picks the best response.", "Party game", "Art & color"],
+  ["2026-08-07", "You have to dive underwater to uncover artifacts of a lost civilization and enraged god.", "Puzzle", "Ancient history"],
+  ["2026-08-07", "You have to teach a troupe of dogs to dance and get an audience score based off the moves and how well the dogs do them during the performance based on your training. Like doggy so you think you can dance or dancing with the stars.", "Simulator", "Dogs"],
+  ["2026-08-07", "Duck duck goose. Duck beauty pageant and you're an undercover goose. Set of stages/minigames for showing you can walk like a duck, quack like a duck, and properly disguise yourself to look like a duck.", "Party game", "Birds"],
+  ["2026-08-07", "Fantasy Sim City or Civ where you pick a race (elves, dwarves, tieflings, etc.) and have access to different types of architecture and are building towards different wonders.", "Simulator", "Architecture"],
+  ["2026-08-07", "You own a monster pet daycare (E.g., pets are slimes, bats, rock golems, etc). Idle game where the pets develop relationships and you can care for/groom them. If you don't give them enough attention, their owner takes them away.", "Idle/incremental", "Monsters"],
+  ["2026-08-07", "Writing on the wall. You wake up each morning to a cryptic message on your bedroom wall that tells you how to avoid that day's disaster.", "Puzzle", "Language"],
+  ["2026-08-07", "A game where all the NPCs lie to you and can't tell you the truth. You have to uncover what is causing the truth curse.", "RPG", "Language"],
+  ["2026-08-07", "Hammer time. You have to solve all sorts of problems/puzzles but only have a hammer.", "Puzzle", "Architecture"],
+  ["2026-08-07", "Sweet Home Builder. You build a house but you only have candy and sweets to use for the assembly.", "Simulator", "Food"],
+  ["2026-08-07", "You're a tornado and have to destroy as much as possible before you disappear. Bonus points for cows.", "Simulator", "Weather"],
+  ["2026-08-08", "For a word, a number, a color. A puzzle game with the underlying symbolism of trying to fall asleep where you are constantly trying to go towards/into the black, but black takes different forms. Black, #000000,  gb(0, 0, 0).", "Puzzle", "Dreams & sleep"],
+  ["2026-08-08", "Are you awake? An inception style game where you have to figure out if you're dreaming and how to wake from the current dream.", "Puzzle", "Dreams & sleep"],
+  ["2026-08-08", "Nightmare fuel. Monster builder where you try to make them as creepy as possible to give kids nightmares. You get a cutscene, score, and can share a gif of your monster with others.", "Toy", "Monsters"],
+  ["2026-08-08", "There's a bunch of door knobs and you have to find the right one to twist. You get more clues like keys and it gets more dangerous to chose the wrong one.", "Escape room", "Architecture"],
+  ["2026-08-08", "One player is a ghost and the other is in the haunted house. The ghost has to try to lead the other player to correctly guess who killed them with what where before the end of a time limit using only things like light flickering and object nudging/falling down.", "Party game", "Ghosts"],
+  ["2026-08-08", "There's a character creator but then all the NPCs and other characters look like you.", "RPG", "Identity"],
+  ["2026-08-08", "A game where you are a bird and get to choose your shape/coloring and customize your call. And then your goal is to find bird feeders while also avoiding windows and predators.", "Simulator", "Birds"],
+  ["2026-08-08", "You're a little fairy who dreams of being a superhero, so you try to fight crime and save people by doing petty little things. The more people believe in you, the stronger you get.", "Platformer", "Heroes & crime"],
+  ["2026-08-08", "Driving/racing game except you're a cart driver in a fantasy setting.", "Racing", "Magic"],
+  ["2026-08-08", "A game where you have a opposite stats and different skills during day and night.", "RPG", "Time"],
+  ["2026-08-09", "You have to collect pieces of colored glass to repair the stained glass sky.", "Puzzle", "Art & color"],
+  ["2026-08-09", "A game where you find yourself in different fairytales as the villain and have to find a way to change your fate to get a happy ending.", "RPG", "Fairytale"],
+];
+
+function pad(n) { return n.toString().padStart(2, "0"); }
+function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function tomorrowDate() { const d = new Date(); d.setDate(d.getDate() + 1); return d; }
+function yearOf(dstr) { return dstr.slice(0, 4); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function resolveValue(picked, other) { return picked === "__other__" ? other.trim() : picked; }
+
+function formatDateLabel(dstr) {
+  const [y, m, d] = dstr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const thisYear = new Date().getFullYear();
+  return dt.toLocaleDateString(undefined, {
+    weekday: "short", month: "short", day: "numeric",
+    year: y !== thisYear ? "numeric" : undefined,
+  });
+}
+
+
+const REPO_NAME = "dailyten-data";
+const GH_API = "https://api.github.com";
+
+function b64encode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function b64decode(b64) {
+  return decodeURIComponent(escape(atob(b64)));
+}
+
+async function ghFetch(path, token, options) {
+  options = options || {};
+  return fetch(GH_API + path, {
+    ...options,
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(options.headers || {}),
+    },
+  });
+}
+
+async function ghGetFile(username, token, filename) {
+  const res = await ghFetch(`/repos/${username}/${REPO_NAME}/contents/${filename}`, token);
+  if (res.status === 404) return { data: null, sha: null };
+  if (!res.ok) throw new Error(`Couldn't read ${filename} (${res.status})`);
+  const json = await res.json();
+  return { data: JSON.parse(b64decode(json.content)), sha: json.sha };
+}
+
+async function ghPutFile(username, token, filename, data, sha, message) {
+  const body = {
+    message: message || `Update ${filename}`,
+    content: b64encode(JSON.stringify(data, null, 2)),
+  };
+  if (sha) body.sha = sha;
+  const res = await ghFetch(`/repos/${username}/${REPO_NAME}/contents/${filename}`, token, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Couldn't save ${filename} (${res.status})`);
+  }
+  const json = await res.json();
+  return json.content.sha;
+}
+
+async function ghListYearFiles(username, token) {
+  const res = await ghFetch(`/repos/${username}/${REPO_NAME}/contents/`, token);
+  if (!res.ok) return [];
+  const items = await res.json();
+  if (!Array.isArray(items)) return [];
+  return items.filter((i) => /^\d{4}\.json$/.test(i.name)).map((i) => i.name.replace(".json", ""));
+}
+
+async function ghValidate(token) {
+  const userRes = await fetch(GH_API + "/user", {
+    headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" },
+  });
+  if (!userRes.ok) throw new Error("Sign-in didn't produce a usable token.");
+  const user = await userRes.json();
+  const repoRes = await ghFetch(`/repos/${user.login}/${REPO_NAME}`, token);
+  if (!repoRes.ok) {
+    throw new Error(`Couldn't find a private repo named "${REPO_NAME}" on your account, or the app wasn't installed on it.`);
+  }
+  return user.login;
+}
+
+function base64url(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function randomToken(len) {
+  const arr = new Uint8Array(len || 32);
+  crypto.getRandomValues(arr);
+  return base64url(arr.buffer);
+}
+async function pkceChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return base64url(digest);
+}
+
+function startGithubLogin() {
+  const verifier = randomToken(64);
+  const state = randomToken(16);
+  sessionStorage.setItem("dailyten_pkce_verifier", verifier);
+  sessionStorage.setItem("dailyten_oauth_state", state);
+  pkceChallenge(verifier).then((challenge) => {
+    const params = new URLSearchParams({
+      client_id: GITHUB_CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      state,
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+    });
+    window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`;
+  });
+}
+
+async function completeGithubLogin(code, state) {
+  const savedState = sessionStorage.getItem("dailyten_oauth_state");
+  const verifier = sessionStorage.getItem("dailyten_pkce_verifier");
+  sessionStorage.removeItem("dailyten_oauth_state");
+  sessionStorage.removeItem("dailyten_pkce_verifier");
+  if (!verifier || state !== savedState) {
+    throw new Error("Sign-in didn't verify correctly. Try again.");
+  }
+  const res = await fetch(WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, code_verifier: verifier, redirect_uri: REDIRECT_URI }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error || !data.access_token) {
+    throw new Error(data.error_description || data.error || "Sign-in failed.");
+  }
+  const login = await ghValidate(data.access_token);
+  localStorage.setItem("dailyten_token", data.access_token);
+  localStorage.setItem("dailyten_user", login);
+  return { token: data.access_token, login };
+}
+
+function ConnectScreen({ onConnect }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (!code) return;
+    window.history.replaceState({}, "", window.location.pathname);
+    setBusy(true);
+    completeGithubLogin(code, state)
+      .then(({ token, login }) => onConnect(token, login))
+      .catch((e) => setError(e.message))
+      .finally(() => setBusy(false));
+  }, []);
+
+  return (
+    <div className="max-w-md mx-auto px-4 pt-16" style={{ color: COLORS.textLight }}>
+      <div className="flex items-baseline gap-2 mb-2">
+        <Gamepad2 size={22} style={{ color: COLORS.green }} />
+        <h1 className="tf-display text-2xl font-semibold">Daily Ten</h1>
+      </div>
+      <p className="text-sm mb-6" style={{ color: COLORS.textMuted }}>
+        Sign in with GitHub to sync with your private <code>dailyten-data</code> repo.
+      </p>
+      <div className="p-4 rounded-2xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
+        {error && <p className="text-xs mb-3" style={{ color: COLORS.red }}>{error}</p>}
+        <button
+          onClick={startGithubLogin}
+          disabled={busy}
+          className="ctrl-btn w-full py-2.5 rounded-full text-sm font-medium disabled:opacity-40"
+          style={{ background: COLORS.green, color: COLORS.onGreen }}
+        >
+          {busy ? "Signing in\u2026" : "Sign in with GitHub"}
+        </button>
+      </div>
+    </div>
+  );
+}
+function fieldStyle() {
+  return {
+    border: `1px solid ${COLORS.panelBorder}`,
+    borderRadius: 10,
+    padding: "8px 10px",
+    fontSize: 13,
+    color: COLORS.textLight,
+    background: COLORS.field,
+    width: "100%",
+  };
+}
+
+function ControllerStripe({ height = 4 }) {
+  return (
+    <div className="flex gap-1" style={{ height }}>
+      <div style={{ flex: 1, background: COLORS.green, borderRadius: 2 }} />
+      <div style={{ flex: 1, background: COLORS.red, borderRadius: 2 }} />
+      <div style={{ flex: 1, background: COLORS.blue, borderRadius: 2 }} />
+      <div style={{ flex: 1, background: COLORS.yellow, borderRadius: 2 }} />
+    </div>
+  );
+}
+
+function TagSelect({ label, value, other, onValue, onOther, options }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs uppercase tracking-wide" style={{ color: COLORS.textMuted }}>{label}</label>
+      <select value={value} onChange={(e) => onValue(e.target.value)} style={fieldStyle()}>
+        <option value="">—</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {value === "__other__" && (
+        <input value={other} onChange={(e) => onOther(e.target.value)} placeholder="type your own" style={fieldStyle()} />
+      )}
+    </div>
+  );
+}
+
+function Pill({ children, tone }) {
+  const border = tone === "form" ? COLORS.blue : tone === "theme" ? COLORS.green : COLORS.yellow;
+  return (
+    <span
+      className="text-xs px-2 py-0.5 rounded-full"
+      style={{ border: `1px solid ${border}`, color: COLORS.textLight, background: "rgba(255,255,255,0.04)" }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function EditRow({ idea, vocab, onSave, onCancel, onDelete }) {
+  const [text, setText] = useState(idea.text);
+  const [form, setForm] = useState(vocab.forms.includes(idea.form) || !idea.form ? idea.form : "__other__");
+  const [formOther, setFormOther] = useState(vocab.forms.includes(idea.form) ? "" : idea.form);
+  const [theme, setTheme] = useState(vocab.themes.includes(idea.theme) || !idea.theme ? idea.theme : "__other__");
+  const [themeOther, setThemeOther] = useState(vocab.themes.includes(idea.theme) ? "" : idea.theme);
+  const [players, setPlayers] = useState(vocab.players.includes(idea.players) || !idea.players ? idea.players : "__other__");
+  const [playersOther, setPlayersOther] = useState(vocab.players.includes(idea.players) ? "" : idea.players);
+
+  return (
+    <div className="p-3 rounded-xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+        style={{ ...fieldStyle(), resize: "vertical" }}
+      />
+      <div className="flex flex-wrap gap-2 mt-2">
+        <div style={{ minWidth: 120 }}><TagSelect label="Form" value={form} other={formOther} onValue={setForm} onOther={setFormOther} options={vocab.forms} /></div>
+        <div style={{ minWidth: 120 }}><TagSelect label="Theme" value={theme} other={themeOther} onValue={setTheme} onOther={setThemeOther} options={vocab.themes} /></div>
+        <div style={{ minWidth: 120 }}><TagSelect label="Players" value={players} other={playersOther} onValue={setPlayers} onOther={setPlayersOther} options={vocab.players} /></div>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <button
+          onClick={() => onDelete(idea)}
+          className="text-xs flex items-center gap-1 px-2 py-1 rounded"
+          style={{ color: COLORS.red }}
+        >
+          <Trash2 size={13} /> Delete
+        </button>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="text-xs px-3 py-1.5 rounded-full" style={{ border: `1px solid ${COLORS.panelBorder}`, color: COLORS.textLight }}>Cancel</button>
+          <button
+            onClick={() => {
+              if (!text.trim()) return;
+              onSave({
+                text: text.trim(),
+                form: resolveValue(form, formOther),
+                theme: resolveValue(theme, themeOther),
+                players: resolveValue(players, playersOther),
+              });
+            }}
+            className="text-xs px-3 py-1.5 rounded-full font-medium"
+            style={{ background: COLORS.green, color: COLORS.onGreen }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IdeaRow({ idea, editing, vocab, onEdit, onCancelEdit, onSave, onDelete, compileMode, selected, onToggleSelect }) {
+  if (editing) {
+    return <EditRow idea={idea} vocab={vocab} onSave={onSave} onCancel={onCancelEdit} onDelete={onDelete} />;
+  }
+  return (
+    <div className="p-3 rounded-xl flex items-start gap-3" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
+      {compileMode ? (
+        <button onClick={() => onToggleSelect(idea.id)} className="mt-0.5" aria-label="Select idea">
+          <span
+            className="flex items-center justify-center"
+            style={{
+              width: 18, height: 18, borderRadius: 5,
+              border: `1.5px solid ${selected ? COLORS.yellow : COLORS.textMuted}`,
+              background: selected ? COLORS.yellow : "transparent",
+            }}
+          >
+            {selected && <Check size={12} color={COLORS.onYellow} />}
+          </span>
+        </button>
+      ) : null}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm" style={{ color: COLORS.textLight }}>{idea.text}</p>
+        {(idea.form || idea.theme || idea.players) && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {idea.form && <Pill tone="form">{idea.form}</Pill>}
+            {idea.theme && <Pill tone="theme">{idea.theme}</Pill>}
+            {idea.players && <Pill tone="players">{idea.players}</Pill>}
+          </div>
+        )}
+      </div>
+      {!compileMode && (
+        <div className="flex gap-1 shrink-0">
+          <button onClick={() => onEdit(idea.id)} aria-label="Edit" style={{ color: COLORS.textMuted }}><Pencil size={14} /></button>
+          <button onClick={() => onDelete(idea)} aria-label="Delete" style={{ color: COLORS.textMuted }}><Trash2 size={14} /></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [token, setToken] = useState(() => localStorage.getItem("dailyten_token") || "");
+  const [username, setUsername] = useState(() => localStorage.getItem("dailyten_user") || "");
+  const [connected, setConnected] = useState(!!(localStorage.getItem("dailyten_token") && localStorage.getItem("dailyten_user")));
+
+  const [tab, setTab] = useState("today");
+  const [ideasByYear, setIdeasByYear] = useState({});
+  const [vocab, setVocab] = useState({ forms: FORMS_DEFAULT, themes: THEMES_DEFAULT, players: PLAYERS_DEFAULT });
+  const [vocabSha, setVocabSha] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [archiveLoaded, setArchiveLoaded] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  const today = dateStr(new Date());
+  const currentYear = yearOf(today);
+
+  const [text, setText] = useState("");
+  const [form, setForm] = useState("");
+  const [formOther, setFormOther] = useState("");
+  const [theme, setTheme] = useState("");
+  const [themeOther, setThemeOther] = useState("");
+  const [players, setPlayers] = useState("");
+  const [playersOther, setPlayersOther] = useState("");
+  const [bank, setBank] = useState(false);
+
+  const [query, setQuery] = useState("");
+  const [expandedDates, setExpandedDates] = useState({});
+  const [compileMode, setCompileMode] = useState(false);
+  const [selected, setSelected] = useState({});
+  const [copyState, setCopyState] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    if (!connected) return;
+    (async () => {
+      try {
+        const cy = await ghGetFile(username, token, `${currentYear}.json`);
+        const vres = await ghGetFile(username, token, "vocab.json");
+
+        const initial = { [currentYear]: cy.data || [] };
+
+        const seedYear = "2026";
+        let seedIdeas = seedYear === currentYear ? cy.data : (await ghGetFile(username, token, `${seedYear}.json`)).data;
+
+        if (seedIdeas === null) {
+          const dayCounters = {};
+          const seeded = IMPORTED.map(([date, txt, f, th], idx) => {
+            const n = (dayCounters[date] = (dayCounters[date] || 0) + 1);
+            return {
+              id: `seed_${idx}`, text: txt,
+              capturedAt: `${date}T20:${pad(n)}:00.000Z`,
+              creditedDate: date, form: f, theme: th, players: "",
+            };
+          });
+          await ghPutFile(username, token, `${seedYear}.json`, seeded, null, "Import from Notion archive");
+          initial[seedYear] = seeded;
+        }
+
+        setIdeasByYear(initial);
+        if (vres.data) {
+          setVocab({
+            forms: vres.data.forms?.length ? vres.data.forms : FORMS_DEFAULT,
+            themes: vres.data.themes?.length ? vres.data.themes : THEMES_DEFAULT,
+            players: vres.data.players?.length ? vres.data.players : PLAYERS_DEFAULT,
+          });
+        }
+        setVocabSha(vres.sha);
+        setReady(true);
+      } catch (e) {
+        setLoadError(e.message);
+        setReady(true);
+      }
+    })();
+  }, [connected]);
+
+  const loadArchive = useCallback(async () => {
+    if (archiveLoaded) return;
+    setArchiveLoading(true);
+    try {
+      let years = await ghListYearFiles(username, token);
+      if (!years.length) years = [currentYear];
+      const missing = years.filter((y) => !(y in ideasByYear));
+      if (missing.length) {
+        const results = await Promise.all(missing.map((y) => ghGetFile(username, token, `${y}.json`)));
+        setIdeasByYear((prev) => {
+          const next = { ...prev };
+          missing.forEach((y, i) => { next[y] = results[i].data || []; });
+          return next;
+        });
+      }
+      setArchiveLoaded(true);
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, [archiveLoaded, currentYear, ideasByYear, username, token]);
+
+  useEffect(() => { if (tab === "archive") loadArchive(); }, [tab, loadArchive]);
+
+  const allIdeas = useMemo(() => Object.values(ideasByYear).flat(), [ideasByYear]);
+
+  const todayIdeas = useMemo(
+    () => allIdeas.filter((i) => i.creditedDate === today).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
+    [allIdeas, today]
+  );
+
+  async function persistYear(year, updater) {
+    setSaving(true); setSaveError(null);
+    try {
+      const { data: latest, sha } = await ghGetFile(username, token, `${year}.json`);
+      const currentList = latest || [];
+      const nextList = updater(currentList);
+      await ghPutFile(username, token, `${year}.json`, nextList, sha, `Update ${year} ideas`);
+      setIdeasByYear((prev) => ({ ...prev, [year]: nextList }));
+    } catch (e) {
+      setSaveError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function maybeSaveVocab(kind, rawPicked, value) {
+    if (rawPicked !== "__other__" || !value) return;
+    if (vocab[kind].includes(value)) return;
+    const next = { ...vocab, [kind]: [...vocab[kind], value] };
+    setVocab(next);
+    try {
+      const newSha = await ghPutFile(username, token, "vocab.json", next, vocabSha, "Update tag vocab");
+      setVocabSha(newSha);
+    } catch (e) {
+      setSaveError(e.message);
+    }
+  }
+
+  async function addIdea() {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const creditedDate = bank ? dateStr(tomorrowDate()) : today;
+    const year = yearOf(creditedDate);
+    const formVal = resolveValue(form, formOther);
+    const themeVal = resolveValue(theme, themeOther);
+    const playersVal = resolveValue(players, playersOther);
+
+    const idea = {
+      id: uid(), text: trimmed, capturedAt: new Date().toISOString(),
+      creditedDate, form: formVal, theme: themeVal, players: playersVal,
+    };
+
+    await persistYear(year, (list) => [...list, idea]);
+    await Promise.all([
+      maybeSaveVocab("forms", form, formVal),
+      maybeSaveVocab("themes", theme, themeVal),
+      maybeSaveVocab("players", players, playersVal),
+    ]);
+
+    setText(""); setForm(""); setFormOther(""); setTheme(""); setThemeOther("");
+    setPlayers(""); setPlayersOther(""); setBank(false);
+  }
+
+  async function deleteIdea(idea) {
+    setEditingId(null);
+    await persistYear(yearOf(idea.creditedDate), (list) => list.filter((i) => i.id !== idea.id));
+  }
+
+  async function saveEdit(idea, patch) {
+    setEditingId(null);
+    await persistYear(yearOf(idea.creditedDate), (list) => list.map((i) => (i.id === idea.id ? { ...i, ...patch } : i)));
+  }
+
+  const grouped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? allIdeas.filter((i) =>
+          i.text.toLowerCase().includes(q) ||
+          [i.form, i.theme, i.players].join(" ").toLowerCase().includes(q)
+        )
+      : allIdeas;
+    const map = {};
+    filtered.forEach((i) => {
+      map[i.creditedDate] = map[i.creditedDate] || [];
+      map[i.creditedDate].push(i);
+    });
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [allIdeas, query]);
+
+  function toggleSelect(id) { setSelected((prev) => ({ ...prev, [id]: !prev[id] })); }
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  async function copySelected() {
+    const ids = Object.keys(selected).filter((id) => selected[id]);
+    const items = allIdeas.filter((i) => ids.includes(i.id)).sort((a, b) => a.creditedDate.localeCompare(b.creditedDate));
+    const lines = items.map((i) => {
+      const tags = [i.form, i.theme, i.players].filter(Boolean).join(" \u00b7 ");
+      return `- ${i.text}${tags ? ` (${tags})` : ""}`;
+    });
+    const out = `Ideas compiled ${formatDateLabel(today)}\n\n${lines.join("\n")}`;
+    try {
+      await navigator.clipboard.writeText(out);
+      setCopyState("copied");
+      setTimeout(() => setCopyState(null), 1800);
+    } catch (e) {
+      setCopyState(out);
+    }
+  }
+
+  function disconnect() {
+    localStorage.removeItem("dailyten_token");
+    localStorage.removeItem("dailyten_user");
+    setConnected(false); setToken(""); setUsername(""); setReady(false);
+    setIdeasByYear({}); setArchiveLoaded(false);
+  }
+
+  const dotsFilled = Math.min(10, todayIdeas.length);
+  const extra = Math.max(0, todayIdeas.length - 10);
+
+  const globalStyle = `
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+    body { margin: 0; }
+    .tf-body { font-family: 'IBM Plex Sans', sans-serif; }
+    .tf-display { font-family: 'Fredoka', sans-serif; }
+    button, select, input, textarea { font-family: inherit; }
+    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid ${COLORS.blue}; outline-offset: 2px;
+    }
+    .ctrl-btn { box-shadow: 0 3px 0 rgba(0,0,0,0.4); transition: transform 0.05s ease, box-shadow 0.05s ease; }
+    .ctrl-btn:active { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,0.4); }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  `;
+
+  return (
+    <div style={{ background: COLORS.bg, minHeight: "100vh" }}>
+      <style>{globalStyle}</style>
+
+      {!connected ? (
+        <ConnectScreen onConnect={(t, u) => { setToken(t); setUsername(u); setConnected(true); }} />
+      ) : (
+        <div className="max-w-2xl mx-auto px-4 pt-8 pb-24 tf-body" style={{ color: COLORS.textLight }}>
+          <header className="mb-6">
+            <div className="flex items-baseline gap-2">
+              <Gamepad2 size={20} style={{ color: COLORS.green }} />
+              <h1 className="tf-display text-2xl font-semibold">Daily Ten \ud83c\udfae</h1>
+            </div>
+            <p className="text-sm mt-1 mb-3" style={{ color: COLORS.textMuted }}>Ten a day, banked when you need it.</p>
+            <ControllerStripe />
+          </header>
+
+          {(loadError || saveError) && (
+            <div className="mb-4 p-3 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.12)", border: `1px solid ${COLORS.red}`, color: COLORS.textLight }}>
+              {loadError || saveError}
+              <button onClick={disconnect} className="ml-2 underline" style={{ color: COLORS.red }}>Reconnect</button>
+            </div>
+          )}
+
+          <div className="flex gap-2 mb-6">
+            <button onClick={() => setTab("today")} className="px-4 py-2 rounded-full text-sm font-medium transition"
+              style={{ background: tab === "today" ? COLORS.green : "transparent", color: tab === "today" ? COLORS.onGreen : COLORS.textMuted, border: `1px solid ${tab === "today" ? COLORS.green : COLORS.panelBorder}` }}>
+              Today
+            </button>
+            <button onClick={() => setTab("archive")} className="px-4 py-2 rounded-full text-sm font-medium transition"
+              style={{ background: tab === "archive" ? COLORS.blue : "transparent", color: tab === "archive" ? COLORS.onBlue : COLORS.textMuted, border: `1px solid ${tab === "archive" ? COLORS.blue : COLORS.panelBorder}` }}>
+              Archive
+            </button>
+          </div>
+
+          {!ready ? (
+            <p className="text-sm" style={{ color: COLORS.textMuted }}>Loading\u2026</p>
+          ) : tab === "today" ? (
+            <div>
+              <div className="p-4 rounded-2xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
+                <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="What if..." rows={2} style={fieldStyle()} />
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <div style={{ minWidth: 120 }}><TagSelect label="Form" value={form} other={formOther} onValue={setForm} onOther={setFormOther} options={vocab.forms} /></div>
+                  <div style={{ minWidth: 120 }}><TagSelect label="Theme" value={theme} other={themeOther} onValue={setTheme} onOther={setThemeOther} options={vocab.themes} /></div>
+                  <div style={{ minWidth: 120 }}><TagSelect label="Players" value={players} other={playersOther} onValue={setPlayers} onOther={setPlayersOther} options={vocab.players} /></div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <button onClick={() => setBank((b) => !b)} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full"
+                    style={{ border: `1px solid ${bank ? COLORS.blue : COLORS.panelBorder}`, color: bank ? COLORS.blue : COLORS.textMuted, background: bank ? "rgba(59,130,246,0.15)" : "transparent" }}>
+                    <Moon size={12} /> {bank ? "Banked for tomorrow" : "Bank for tomorrow"}
+                  </button>
+                  <button onClick={addIdea} disabled={!text.trim()} className="ctrl-btn flex items-center justify-center rounded-full disabled:opacity-40"
+                    style={{ width: 42, height: 42, background: COLORS.green, color: COLORS.onGreen }} aria-label="Add idea">
+                    <Plus size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 mb-4">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium">Today's tally</span>
+                  <span className="text-sm" style={{ color: COLORS.textMuted }}>{todayIdeas.length} of 10{saving ? " \u00b7 saving\u2026" : ""}</span>
+                </div>
+                <div className="flex gap-1.5 mt-2">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <span key={i} style={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: i < dotsFilled ? COLORS.yellow : "transparent", border: `1.5px solid ${i < dotsFilled ? COLORS.yellow : COLORS.textMuted}` }} />
+                  ))}
+                  {extra > 0 && <span className="text-xs ml-1" style={{ color: COLORS.blue }}>+{extra}</span>}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {todayIdeas.length === 0 && <p className="text-sm" style={{ color: COLORS.textMuted }}>Nothing logged yet. What's rattling around?</p>}
+                {todayIdeas.map((idea) => (
+                  <IdeaRow key={idea.id} idea={idea} vocab={vocab} editing={editingId === idea.id}
+                    onEdit={setEditingId} onCancelEdit={() => setEditingId(null)}
+                    onSave={(patch) => saveEdit(idea, patch)} onDelete={deleteIdea} compileMode={false} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="flex gap-2 mb-4">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-full" style={{ border: `1px solid ${COLORS.panelBorder}`, background: COLORS.panel }}>
+                  <Search size={14} style={{ color: COLORS.textMuted }} />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search text or tags" className="text-sm w-full bg-transparent" style={{ color: COLORS.textLight, outline: "none" }} />
+                  {query && <button onClick={() => setQuery("")}><XIcon size={14} style={{ color: COLORS.textMuted }} /></button>}
+                </div>
+                <button onClick={() => { setCompileMode((c) => !c); setSelected({}); setCopyState(null); }} className="px-3 py-2 rounded-full text-sm flex items-center gap-1.5"
+                  style={{ border: `1px solid ${compileMode ? COLORS.yellow : COLORS.panelBorder}`, color: compileMode ? COLORS.yellow : COLORS.textMuted }}>
+                  <Copy size={14} /> Compile
+                </button>
+              </div>
+
+              {archiveLoading && <p className="text-sm mb-3" style={{ color: COLORS.textMuted }}>Gathering past days\u2026</p>}
+              {grouped.length === 0 && !archiveLoading && <p className="text-sm" style={{ color: COLORS.textMuted }}>Nothing here yet.</p>}
+
+              <div className="flex flex-col gap-2">
+                {grouped.map(([date, ideas]) => {
+                  const isOpen = expandedDates[date] ?? (query.trim().length > 0);
+                  return (
+                    <div key={date} className="rounded-xl overflow-hidden" style={{ border: `1px solid ${COLORS.panelBorder}` }}>
+                      <button onClick={() => setExpandedDates((p) => ({ ...p, [date]: !isOpen }))} className="w-full flex items-center justify-between px-3 py-2.5" style={{ background: COLORS.panel }}>
+                        <span className="text-sm font-medium">{formatDateLabel(date)}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-xs" style={{ color: COLORS.textMuted }}>{ideas.length}</span>
+                          {isOpen ? <ChevronDown size={14} style={{ color: COLORS.textMuted }} /> : <ChevronRight size={14} style={{ color: COLORS.textMuted }} />}
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="flex flex-col gap-2 p-2" style={{ background: COLORS.bg }}>
+                          {ideas.map((idea) => (
+                            <IdeaRow key={idea.id} idea={idea} vocab={vocab} editing={editingId === idea.id}
+                              onEdit={setEditingId} onCancelEdit={() => setEditingId(null)}
+                              onSave={(patch) => saveEdit(idea, patch)} onDelete={deleteIdea}
+                              compileMode={compileMode} selected={!!selected[idea.id]} onToggleSelect={toggleSelect} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {compileMode && selectedCount > 0 && (
+                <div className="fixed bottom-4 left-4 right-4 max-w-2xl mx-auto p-3 rounded-2xl flex items-center justify-between" style={{ background: COLORS.yellow, color: COLORS.onYellow }}>
+                  <span className="text-sm font-medium">{selectedCount} selected</span>
+                  <button onClick={copySelected} className="text-sm font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: COLORS.bg, color: COLORS.yellow }}>
+                    {copyState === "copied" ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                  </button>
+                </div>
+              )}
+
+              {copyState && copyState !== "copied" && (
+                <div className="mt-4 p-3 rounded-xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
+                  <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Clipboard access was blocked here. Select and copy the text below.</p>
+                  <textarea readOnly value={copyState} rows={6} style={fieldStyle()} onFocus={(e) => e.target.select()} />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-xs mt-10 text-center" style={{ color: COLORS.textMuted }}>
+            <p>Stored in your private dailyten-data repo on GitHub.</p>
+            <button onClick={disconnect} className="underline mt-1" style={{ color: COLORS.textMuted }}>Disconnect</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+
+
+</script>
+</body>
+</html>
