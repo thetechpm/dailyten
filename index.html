@@ -534,7 +534,8 @@ function App() {
   async function addIdea() {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const creditedDate = bank ? dateStr(tomorrowDate()) : today;
+    const canBank = todayIdeas.length >= 10;
+    const creditedDate = (bank && canBank) ? dateStr(tomorrowDate()) : today;
     const year = yearOf(creditedDate);
     const formVal = resolveValue(form, formOther);
     const themeVal = resolveValue(theme, themeOther);
@@ -673,10 +674,12 @@ function App() {
                   <div style={{ minWidth: 120 }}><TagSelect label="Players" value={players} other={playersOther} onValue={setPlayers} onOther={setPlayersOther} options={vocab.players} /></div>
                 </div>
                 <div className="flex items-center justify-between mt-3">
-                  <button onClick={() => setBank((b) => !b)} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full"
-                    style={{ border: `1px solid ${bank ? COLORS.blue : COLORS.panelBorder}`, color: bank ? COLORS.blue : COLORS.textMuted, background: bank ? "rgba(59,130,246,0.15)" : "transparent" }}>
-                    <Moon size={12} /> {bank ? "Banked for tomorrow" : "Bank for tomorrow"}
-                  </button>
+                  {todayIdeas.length >= 10 ? (
+                    <button onClick={() => setBank((b) => !b)} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full"
+                      style={{ border: `1px solid ${bank ? COLORS.blue : COLORS.panelBorder}`, color: bank ? COLORS.blue : COLORS.textMuted, background: bank ? "rgba(59,130,246,0.15)" : "transparent" }}>
+                      <Moon size={12} /> {bank ? "Banked for tomorrow" : "Bank for tomorrow"}
+                    </button>
+                  ) : <span />}
                   <button onClick={addIdea} disabled={!text.trim()} className="ctrl-btn flex items-center justify-center rounded-full disabled:opacity-40"
                     style={{ width: 42, height: 42, background: COLORS.green, color: COLORS.onGreen }} aria-label="Add idea">
                     <Plus size={20} />
