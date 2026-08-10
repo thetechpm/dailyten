@@ -22,7 +22,7 @@
 <div id="root"></div>
 <script type="text/babel" data-presets="react-classic">
 const { useState, useEffect, useCallback, useMemo } = React;
-
+ 
 function makeIcon(glyph) {
   return function IconComp({ size = 16, color, style = {} }) {
     return <span style={{ fontSize: size, lineHeight: 1, color, display: "inline-block", ...style }}>{glyph}</span>;
@@ -46,6 +46,7 @@ const WORKER_URL = "https://dailyten-auth-worker.hunter-jennifer-k.workers.dev/"
 const REDIRECT_URI = "https://dailyten.win/";
 // -----------------------------------------------------------------------------
 
+
 const COLORS = {
   bg: "#161719",
   panel: "#1E2024",
@@ -61,7 +62,7 @@ const COLORS = {
   textMuted: "#8B8F98",
   textLight: "#ECEDEF",
 };
-
+ 
 const FORMS_DEFAULT = [
   "Escape room", "Puzzle", "Platformer", "RPG", "Deckbuilder", "Card game",
   "Party game", "Idle/incremental", "Rhythm", "Tower defense", "Racing",
@@ -75,16 +76,16 @@ const THEMES_DEFAULT = [
   "Architecture", "Identity",
 ];
 const PLAYERS_DEFAULT = ["Solo", "Co-op", "Competitive", "Async", "Party"];
-
+ 
 // Historical ideas live in the private dailyten-data repo, not here.
-
+ 
 function pad(n) { return n.toString().padStart(2, "0"); }
 function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 function tomorrowDate() { const d = new Date(); d.setDate(d.getDate() + 1); return d; }
 function yearOf(dstr) { return dstr.slice(0, 4); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function resolveValue(picked, other) { return picked === "__other__" ? other.trim() : picked; }
-
+ 
 function formatDateLabel(dstr) {
   const [y, m, d] = dstr.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
@@ -94,18 +95,18 @@ function formatDateLabel(dstr) {
     year: y !== thisYear ? "numeric" : undefined,
   });
 }
-
-
+ 
+ 
 const REPO_NAME = "dailyten-data";
 const GH_API = "https://api.github.com";
-
+ 
 function b64encode(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
 function b64decode(b64) {
   return decodeURIComponent(escape(atob(b64)));
 }
-
+ 
 async function ghFetch(path, token, options) {
   options = options || {};
   return fetch(GH_API + path, {
@@ -118,7 +119,7 @@ async function ghFetch(path, token, options) {
     },
   });
 }
-
+ 
 async function ghGetFile(username, token, filename) {
   const res = await ghFetch(`/repos/${username}/${REPO_NAME}/contents/${filename}`, token);
   if (res.status === 404) return { data: null, sha: null };
@@ -126,7 +127,7 @@ async function ghGetFile(username, token, filename) {
   const json = await res.json();
   return { data: JSON.parse(b64decode(json.content)), sha: json.sha };
 }
-
+ 
 async function ghPutFile(username, token, filename, data, sha, message) {
   const body = {
     message: message || `Update ${filename}`,
@@ -145,7 +146,7 @@ async function ghPutFile(username, token, filename, data, sha, message) {
   const json = await res.json();
   return json.content.sha;
 }
-
+ 
 async function ghListYearFiles(username, token) {
   const res = await ghFetch(`/repos/${username}/${REPO_NAME}/contents/`, token);
   if (!res.ok) return [];
@@ -153,7 +154,7 @@ async function ghListYearFiles(username, token) {
   if (!Array.isArray(items)) return [];
   return items.filter((i) => /^\d{4}\.json$/.test(i.name)).map((i) => i.name.replace(".json", ""));
 }
-
+ 
 async function ghValidate(token) {
   const userRes = await fetch(GH_API + "/user", {
     headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json" },
@@ -166,7 +167,7 @@ async function ghValidate(token) {
   }
   return user.login;
 }
-
+ 
 function base64url(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -181,12 +182,12 @@ async function pkceChallenge(verifier) {
   const digest = await crypto.subtle.digest("SHA-256", data);
   return base64url(digest);
 }
-
+ 
 function startGithubLogin() {
   const verifier = randomToken(64);
   const state = randomToken(16);
-  sessionStorage.setItem("dailyten_pkce_verifier", verifier);
-  sessionStorage.setItem("dailyten_oauth_state", state);
+  localStorage.setItem("dailyten_pkce_verifier", verifier);
+  localStorage.setItem("dailyten_oauth_state", state);
   pkceChallenge(verifier).then((challenge) => {
     const params = new URLSearchParams({
       client_id: GITHUB_CLIENT_ID,
@@ -198,14 +199,17 @@ function startGithubLogin() {
     window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`;
   });
 }
-
+ 
 async function completeGithubLogin(code, state) {
-  const savedState = sessionStorage.getItem("dailyten_oauth_state");
-  const verifier = sessionStorage.getItem("dailyten_pkce_verifier");
-  sessionStorage.removeItem("dailyten_oauth_state");
-  sessionStorage.removeItem("dailyten_pkce_verifier");
-  if (!verifier || state !== savedState) {
-    throw new Error("Sign-in didn't verify correctly. Try again.");
+  const savedState = localStorage.getItem("dailyten_oauth_state");
+  const verifier = localStorage.getItem("dailyten_pkce_verifier");
+  localStorage.removeItem("dailyten_oauth_state");
+  localStorage.removeItem("dailyten_pkce_verifier");
+  if (!verifier) {
+    throw new Error("The sign-in didn't come back to the same browser it started in. Open dailyten.win directly in Chrome and try again.");
+  }
+  if (state !== savedState) {
+    throw new Error("Sign-in state didn't match. Try again.");
   }
   const res = await fetch(WORKER_URL, {
     method: "POST",
@@ -221,11 +225,11 @@ async function completeGithubLogin(code, state) {
   localStorage.setItem("dailyten_user", login);
   return { token: data.access_token, login };
 }
-
+ 
 function ConnectScreen({ onConnect }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-
+ 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
@@ -238,7 +242,7 @@ function ConnectScreen({ onConnect }) {
       .catch((e) => setError(e.message))
       .finally(() => setBusy(false));
   }, []);
-
+ 
   return (
     <div className="max-w-md mx-auto px-4 pt-16" style={{ color: COLORS.textLight }}>
       <div className="flex items-baseline gap-2 mb-2">
@@ -273,7 +277,7 @@ function fieldStyle() {
     width: "100%",
   };
 }
-
+ 
 function ControllerStripe({ height = 4 }) {
   return (
     <div className="flex gap-1" style={{ height }}>
@@ -284,7 +288,7 @@ function ControllerStripe({ height = 4 }) {
     </div>
   );
 }
-
+ 
 function TagSelect({ label, value, other, onValue, onOther, options }) {
   return (
     <div className="flex flex-col gap-1">
@@ -300,7 +304,7 @@ function TagSelect({ label, value, other, onValue, onOther, options }) {
     </div>
   );
 }
-
+ 
 function Pill({ children, tone }) {
   const border = tone === "form" ? COLORS.blue : tone === "theme" ? COLORS.green : COLORS.yellow;
   return (
@@ -312,7 +316,7 @@ function Pill({ children, tone }) {
     </span>
   );
 }
-
+ 
 function EditRow({ idea, vocab, onSave, onCancel, onDelete }) {
   const [text, setText] = useState(idea.text);
   const [form, setForm] = useState(vocab.forms.includes(idea.form) || !idea.form ? idea.form : "__other__");
@@ -321,7 +325,7 @@ function EditRow({ idea, vocab, onSave, onCancel, onDelete }) {
   const [themeOther, setThemeOther] = useState(vocab.themes.includes(idea.theme) ? "" : idea.theme);
   const [players, setPlayers] = useState(vocab.players.includes(idea.players) || !idea.players ? idea.players : "__other__");
   const [playersOther, setPlayersOther] = useState(vocab.players.includes(idea.players) ? "" : idea.players);
-
+ 
   return (
     <div className="p-3 rounded-xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
       <textarea
@@ -365,7 +369,7 @@ function EditRow({ idea, vocab, onSave, onCancel, onDelete }) {
     </div>
   );
 }
-
+ 
 function IdeaRow({ idea, editing, vocab, onEdit, onCancelEdit, onSave, onDelete, compileMode, selected, onToggleSelect }) {
   if (editing) {
     return <EditRow idea={idea} vocab={vocab} onSave={onSave} onCancel={onCancelEdit} onDelete={onDelete} />;
@@ -405,12 +409,12 @@ function IdeaRow({ idea, editing, vocab, onEdit, onCancelEdit, onSave, onDelete,
     </div>
   );
 }
-
+ 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem("dailyten_token") || "");
   const [username, setUsername] = useState(() => localStorage.getItem("dailyten_user") || "");
   const [connected, setConnected] = useState(!!(localStorage.getItem("dailyten_token") && localStorage.getItem("dailyten_user")));
-
+ 
   const [tab, setTab] = useState("today");
   const [ideasByYear, setIdeasByYear] = useState({});
   const [vocab, setVocab] = useState({ forms: FORMS_DEFAULT, themes: THEMES_DEFAULT, players: PLAYERS_DEFAULT });
@@ -421,10 +425,10 @@ function App() {
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
-
+ 
   const today = dateStr(new Date());
   const currentYear = yearOf(today);
-
+ 
   const [text, setText] = useState("");
   const [form, setForm] = useState("");
   const [formOther, setFormOther] = useState("");
@@ -433,23 +437,23 @@ function App() {
   const [players, setPlayers] = useState("");
   const [playersOther, setPlayersOther] = useState("");
   const [bank, setBank] = useState(false);
-
+ 
   const [query, setQuery] = useState("");
   const [expandedDates, setExpandedDates] = useState({});
   const [compileMode, setCompileMode] = useState(false);
   const [selected, setSelected] = useState({});
   const [copyState, setCopyState] = useState(null);
   const [editingId, setEditingId] = useState(null);
-
+ 
   useEffect(() => {
     if (!connected) return;
     (async () => {
       try {
         const cy = await ghGetFile(username, token, `${currentYear}.json`);
         const vres = await ghGetFile(username, token, "vocab.json");
-
+ 
         const initial = { [currentYear]: cy.data || [] };
-
+ 
         setIdeasByYear(initial);
         if (vres.data) {
           setVocab({
@@ -466,7 +470,7 @@ function App() {
       }
     })();
   }, [connected]);
-
+ 
   const loadArchive = useCallback(async () => {
     if (archiveLoaded) return;
     setArchiveLoading(true);
@@ -489,16 +493,16 @@ function App() {
       setArchiveLoading(false);
     }
   }, [archiveLoaded, currentYear, ideasByYear, username, token]);
-
+ 
   useEffect(() => { if (tab === "archive") loadArchive(); }, [tab, loadArchive]);
-
+ 
   const allIdeas = useMemo(() => Object.values(ideasByYear).flat(), [ideasByYear]);
-
+ 
   const todayIdeas = useMemo(
     () => allIdeas.filter((i) => i.creditedDate === today).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)),
     [allIdeas, today]
   );
-
+ 
   async function persistYear(year, updater) {
     setSaving(true); setSaveError(null);
     try {
@@ -513,7 +517,7 @@ function App() {
       setSaving(false);
     }
   }
-
+ 
   async function maybeSaveVocab(kind, rawPicked, value) {
     if (rawPicked !== "__other__" || !value) return;
     if (vocab[kind].includes(value)) return;
@@ -526,7 +530,7 @@ function App() {
       setSaveError(e.message);
     }
   }
-
+ 
   async function addIdea() {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -535,33 +539,33 @@ function App() {
     const formVal = resolveValue(form, formOther);
     const themeVal = resolveValue(theme, themeOther);
     const playersVal = resolveValue(players, playersOther);
-
+ 
     const idea = {
       id: uid(), text: trimmed, capturedAt: new Date().toISOString(),
       creditedDate, form: formVal, theme: themeVal, players: playersVal,
     };
-
+ 
     await persistYear(year, (list) => [...list, idea]);
     await Promise.all([
       maybeSaveVocab("forms", form, formVal),
       maybeSaveVocab("themes", theme, themeVal),
       maybeSaveVocab("players", players, playersVal),
     ]);
-
+ 
     setText(""); setForm(""); setFormOther(""); setTheme(""); setThemeOther("");
     setPlayers(""); setPlayersOther(""); setBank(false);
   }
-
+ 
   async function deleteIdea(idea) {
     setEditingId(null);
     await persistYear(yearOf(idea.creditedDate), (list) => list.filter((i) => i.id !== idea.id));
   }
-
+ 
   async function saveEdit(idea, patch) {
     setEditingId(null);
     await persistYear(yearOf(idea.creditedDate), (list) => list.map((i) => (i.id === idea.id ? { ...i, ...patch } : i)));
   }
-
+ 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -577,10 +581,10 @@ function App() {
     });
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
   }, [allIdeas, query]);
-
+ 
   function toggleSelect(id) { setSelected((prev) => ({ ...prev, [id]: !prev[id] })); }
   const selectedCount = Object.values(selected).filter(Boolean).length;
-
+ 
   async function copySelected() {
     const ids = Object.keys(selected).filter((id) => selected[id]);
     const items = allIdeas.filter((i) => ids.includes(i.id)).sort((a, b) => a.creditedDate.localeCompare(b.creditedDate));
@@ -597,17 +601,17 @@ function App() {
       setCopyState(out);
     }
   }
-
+ 
   function disconnect() {
     localStorage.removeItem("dailyten_token");
     localStorage.removeItem("dailyten_user");
     setConnected(false); setToken(""); setUsername(""); setReady(false);
     setIdeasByYear({}); setArchiveLoaded(false);
   }
-
+ 
   const dotsFilled = Math.min(10, todayIdeas.length);
   const extra = Math.max(0, todayIdeas.length - 10);
-
+ 
   const globalStyle = `
     @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
     body { margin: 0; }
@@ -621,11 +625,11 @@ function App() {
     .ctrl-btn:active { transform: translateY(3px); box-shadow: 0 0 0 rgba(0,0,0,0.4); }
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   `;
-
+ 
   return (
     <div style={{ background: COLORS.bg, minHeight: "100vh" }}>
       <style>{globalStyle}</style>
-
+ 
       {!connected ? (
         <ConnectScreen onConnect={(t, u) => { setToken(t); setUsername(u); setConnected(true); }} />
       ) : (
@@ -633,19 +637,19 @@ function App() {
           <header className="mb-6">
             <div className="flex items-baseline gap-2">
               <Gamepad2 size={20} style={{ color: COLORS.green }} />
-              <h1 className="tf-display text-2xl font-semibold">Daily Ten \ud83c\udfae</h1>
+              <h1 className="tf-display text-2xl font-semibold">Daily Ten</h1>
             </div>
             <p className="text-sm mt-1 mb-3" style={{ color: COLORS.textMuted }}>Ten a day, banked when you need it.</p>
             <ControllerStripe />
           </header>
-
+ 
           {(loadError || saveError) && (
             <div className="mb-4 p-3 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.12)", border: `1px solid ${COLORS.red}`, color: COLORS.textLight }}>
               {loadError || saveError}
               <button onClick={disconnect} className="ml-2 underline" style={{ color: COLORS.red }}>Reconnect</button>
             </div>
           )}
-
+ 
           <div className="flex gap-2 mb-6">
             <button onClick={() => setTab("today")} className="px-4 py-2 rounded-full text-sm font-medium transition"
               style={{ background: tab === "today" ? COLORS.green : "transparent", color: tab === "today" ? COLORS.onGreen : COLORS.textMuted, border: `1px solid ${tab === "today" ? COLORS.green : COLORS.panelBorder}` }}>
@@ -656,7 +660,7 @@ function App() {
               Archive
             </button>
           </div>
-
+ 
           {!ready ? (
             <p className="text-sm" style={{ color: COLORS.textMuted }}>Loading\u2026</p>
           ) : tab === "today" ? (
@@ -679,7 +683,7 @@ function App() {
                   </button>
                 </div>
               </div>
-
+ 
               <div className="mt-5 mb-4">
                 <div className="flex items-baseline justify-between">
                   <span className="text-sm font-medium">Today's tally</span>
@@ -692,7 +696,7 @@ function App() {
                   {extra > 0 && <span className="text-xs ml-1" style={{ color: COLORS.blue }}>+{extra}</span>}
                 </div>
               </div>
-
+ 
               <div className="flex flex-col gap-2">
                 {todayIdeas.length === 0 && <p className="text-sm" style={{ color: COLORS.textMuted }}>Nothing logged yet. What's rattling around?</p>}
                 {todayIdeas.map((idea) => (
@@ -715,10 +719,10 @@ function App() {
                   <Copy size={14} /> Compile
                 </button>
               </div>
-
+ 
               {archiveLoading && <p className="text-sm mb-3" style={{ color: COLORS.textMuted }}>Gathering past days\u2026</p>}
               {grouped.length === 0 && !archiveLoading && <p className="text-sm" style={{ color: COLORS.textMuted }}>Nothing here yet.</p>}
-
+ 
               <div className="flex flex-col gap-2">
                 {grouped.map(([date, ideas]) => {
                   const isOpen = expandedDates[date] ?? (query.trim().length > 0);
@@ -745,7 +749,7 @@ function App() {
                   );
                 })}
               </div>
-
+ 
               {compileMode && selectedCount > 0 && (
                 <div className="fixed bottom-4 left-4 right-4 max-w-2xl mx-auto p-3 rounded-2xl flex items-center justify-between" style={{ background: COLORS.yellow, color: COLORS.onYellow }}>
                   <span className="text-sm font-medium">{selectedCount} selected</span>
@@ -754,7 +758,7 @@ function App() {
                   </button>
                 </div>
               )}
-
+ 
               {copyState && copyState !== "copied" && (
                 <div className="mt-4 p-3 rounded-xl" style={{ background: COLORS.panel, border: `1px solid ${COLORS.panelBorder}` }}>
                   <p className="text-xs mb-2" style={{ color: COLORS.textMuted }}>Clipboard access was blocked here. Select and copy the text below.</p>
@@ -763,7 +767,7 @@ function App() {
               )}
             </div>
           )}
-
+ 
           <div className="text-xs mt-10 text-center" style={{ color: COLORS.textMuted }}>
             <p>Stored in your private dailyten-data repo on GitHub.</p>
             <button onClick={disconnect} className="underline mt-1" style={{ color: COLORS.textMuted }}>Disconnect</button>
@@ -773,11 +777,11 @@ function App() {
     </div>
   );
 }
-
+ 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
-
-
+ 
+ 
 </script>
 </body>
 </html>
