@@ -9,6 +9,9 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script>
+  // React's UMD build is a global here, not a module, so we need Babel's
+  // "classic" runtime (React.createElement) instead of the newer automatic
+  // runtime, which injects an ESM import the browser can't execute.
   Babel.registerPreset("react-classic", {
     presets: [[Babel.availablePresets["react"], { runtime: "classic" }]],
   });
@@ -42,6 +45,7 @@ const GITHUB_CLIENT_ID = "Iv23liaW947H5wmJlWGv";
 const WORKER_URL = "https://dailyten-auth-worker.hunter-jennifer-k.workers.dev/";
 const REDIRECT_URI = "https://dailyten.win/";
 // -----------------------------------------------------------------------------
+
 const COLORS = {
   bg: "#161719",
   panel: "#1E2024",
@@ -72,111 +76,7 @@ const THEMES_DEFAULT = [
 ];
 const PLAYERS_DEFAULT = ["Solo", "Co-op", "Competitive", "Async", "Party"];
 
-// Imported from the Notion table: [creditedDate, text, form, theme]
-const IMPORTED = [
-  ["2026-07-30", "Caterpillar platformer where the caterpillar eats and grows their way into being a butterfly and escaping", "Platformer", "Insects"],
-  ["2026-07-30", "You are a dog and are trying to see how fast you can tear apart your toys.", "Toy", "Dogs"],
-  ["2026-07-30", "Chickadee trying to out maneuver a bunch of big birds to get to a bird feeder", "Platformer", "Birds"],
-  ["2026-07-30", "You are a house and are trying to keep a family with you as long as possible.", "Simulator", "Domestic life"],
-  ["2026-07-30", "Digger game where you are trying to reach the other side of the world and come across all sorts of weird creatures", "Simulator", "Monsters"],
-  ["2026-07-30", "Sims but a pseudo card game where you only have five possible random actions you can choose from", "Card game", "Domestic life"],
-  ["2026-07-30", "Food art party game. Everyone gets a set of food like carrots, mashed potatoes and peas, and has to try and illustrate a prompt. Like apples to apples but with actual apples.", "Party game", "Food"],
-  ["2026-07-30", "Escape room game. You see a beautiful world outside through a window, but when you get out you realize it was an illusion, and there's a bigger and bigger room to escape until you're floating in the void/space.", "Escape room", "Space"],
-  ["2026-07-30", "Bird Poop Hero. Strategically poop on bad guys to save the innocents during a crime or to hinder them when the police are chasing.", "Platformer", "Heroes & crime"],
-  ["2026-07-30", "You are a baby loon trying to escape a large bird of prey. Use your skills of diving underwater and smaller size to out maneuver the foe.", "Platformer", "Birds"],
-  ["2026-07-31", "Playing house. Players all get randomly assigned a role and have hidden objectives.", "Party game", "Domestic life"],
-  ["2026-07-31", "You play as a hieroglyphic person trying to escape the wall.", "Puzzle", "Ancient history"],
-  ["2026-07-31", "Slay the Spire but Pokemon. Moveset deck instead of always having the ability to do four.", "Deckbuilder", "Monsters"],
-  ["2026-07-31", "Dog trying to take a human to safety during an apocalypse. Dog character creator.", "RPG", "Dogs"],
-  ["2026-07-31", "Red light, green light but with a TRex", "Party game", "Animals"],
-  ["2026-07-31", "Fetch with a dog but you're an alien with telekinesis.", "Toy", "Dogs"],
-  ["2026-07-31", "Hangman but a card game, and you're trying to choose the letters that aren't there.", "Card game", "Language"],
-  ["2026-07-31", "Speed spot the imposter. But with ditto creatures that almost match but have a tell.", "Party game", "Monsters"],
-  ["2026-07-31", "Game where you have to organize a house while a cat and/or ghost try to knock things down.", "Puzzle", "Ghosts"],
-  ["2026-07-31", "Defender on the shore of the Styx, trying to bop the souls back into the river.", "Tower defense", "Death"],
-  ["2026-08-01", "Pokemon but the player is a dog sending their humans out to battle against the daily struggles of life.", "RPG", "Dogs"],
-  ["2026-08-01", "Panic attack simulator. Seemingly trivial tasks that you have to complete and you choose the style of panic attack before starting.", "Simulator", "Identity"],
-  ["2026-08-01", "A crab trying to ping obstacles and predators to help sea turtles get to the water.", "Puzzle", "Ocean"],
-  ["2026-08-01", "Rhythm game but with bottles you need to blow into.", "Rhythm", "Music & sound"],
-  ["2026-08-01", "Cloud sculpting, but you're a biblical angel and have to keep batting your wings to reach the clouds.", "Simulator", "Gods & myth"],
-  ["2026-08-01", "You are a puppy trying to sneak up to snuggle a grouchy old cat.", "Puzzle", "Dogs"],
-  ["2026-08-01", "Two player game where one is running a haunted house and the other is going through it.", "Party game", "Ghosts"],
-  ["2026-08-01", "Game where you're a god and the only way you can interact with the world to help the people survive is through natural disasters. Like Sim City except you're trying to help them flourish and not go extinct through the positives of the disasters.", "Simulator", "Gods & myth"],
-  ["2026-08-01", "A game where you are expected to die a lot, but your deaths leave ghosts. Some help you and some hurt you.", "Platformer", "Ghosts"],
-  ["2026-08-01", "RPG where you start with four party members. You're the only one who recovers health. You can give bits of your health to other members, but the fuller your party, the slower you recover.", "RPG", "Identity"],
-  ["2026-08-02", "Monster tea party. Have to find the teas and treats each monster likes best.", "Puzzle", "Monsters"],
-  ["2026-08-02", "You have to do a grocery run but your goal is to have the least interaction possible. Every time someone notices you or tries to interact with you, you lose some of your social battery.", "Simulator", "Identity"],
-  ["2026-08-02", "Nap simulator. Change conditions to try and optimize your nap.", "Simulator", "Dreams & sleep"],
-  ["2026-08-02", "An alchemy game where the rules seem so different and random at first but you discover unexpected patterns.", "Puzzle", "Magic"],
-  ["2026-08-02", "You're driving a speed boat and trying to knock off tubers as fast as possible. But there's a hidden mission to actually just make it as exciting and as fun as possible for the tubers.", "Racing", "Ocean"],
-  ["2026-08-02", "Sailboat designer. Then you watch it sail off into the sunset.", "Toy", "Ocean"],
-  ["2026-08-02", "You're a derpy ibis trying to get worms from the ground.", "Toy", "Birds"],
-  ["2026-08-02", "You can choose money, knowledge, or people as a winning strategy but each has its drawbacks and the more people choose it the less power you have through it.", "Party game", "Identity"],
-  ["2026-08-02", "You're a husband/wife desperately looking for their lost wedding ring before your spouse finds out.", "Puzzle", "Domestic life"],
-  ["2026-08-02", "Musical chairs, but it's you against your dogs.", "Party game", "Dogs"],
-  ["2026-08-03", "Cryptid driving game. You see from your windshield, driving at night and have to not hit cryptids crossing your path.", "Racing", "Cryptids"],
-  ["2026-08-03", "You are a squirrel trying to get through increasingly complex obstacles to get to a bird feeder.", "Platformer", "Animals"],
-  ["2026-08-03", "Simon says but with dogs.", "Party game", "Dogs"],
-  ["2026-08-03", "You are a hive mind of termites and need to destroy the building before the pest control get you.", "Simulator", "Insects"],
-  ["2026-08-03", "You're a suit of armor trying to get through a castle to the treasure room without getting caught.", "Platformer", "Ancient history"],
-  ["2026-08-03", "You're a dog therapist and have to help dogs solve their doggy problems.", "Simulator", "Dogs"],
-  ["2026-08-03", "Design an alien. Depending on how cute/scary it is, people of the invaded world react differently.", "Toy", "Space"],
-  ["2026-08-03", "Jousting but with sea horses and underwater.", "Party game", "Ocean"],
-  ["2026-08-03", "A spot the difference escape room.", "Escape room", "Art & color"],
-  ["2026-08-03", "A villain is stealing words. Every time they face you, they steal a word from you and no one in that world including NPCs can say or perceive that word (becomes garbles or corrupted text).", "RPG", "Language"],
-  ["2026-08-04", "An incremental tower defense game, but you're building a sand castle that can fend off small children.", "Tower defense", "Architecture"],
-  ["2026-08-04", "A platformer where you have to use different paints to solve puzzles. But each paints stays on you through the rest of the game as a symbol of how we carry our past and experiences with us.", "Platformer", "Art & color"],
-  ["2026-08-04", "An idle game like cookie clicker except you run a maple syrup producer. So you start with one tree that gives you a few drops every minute.", "Idle/incremental", "Food"],
-  ["2026-08-04", "A trivia game with song lyric quotes and you have to guess the correct missing word from a list. And each correct answer gives you a word to a meta lyrics to answer to win the game.", "Trivia", "Music & sound"],
-  ["2026-08-04", "Starts off as an ant farm simulator but the ant civilization starts evolving rapidly and you have to choose between assisting them or destroying them before it's too late.", "Simulator", "Insects"],
-  ["2026-08-04", "Click based jump rope game. But the jump ropes are made of spikes, fire, and plasma and other dangerous things.", "Platformer", "Domestic life"],
-  ["2026-08-04", "A game where you stack cards into pretty towers and you get to have the fun of knocking it down after every turn.", "Card game", "Architecture"],
-  ["2026-08-04", "Yu gi oh but paint by numbers. A game where you need to quickly do a small paint by numbers to unleash the monster on your card.", "Card game", "Art & color"],
-  ["2026-08-04", "8 seg lights that blink quickly in an order. First it's a single letter. Then you need to try and follow along and guess for an entire word.", "Puzzle", "Language"],
-  ["2026-08-04", "Restricted drawing guessing game. Like pictionary, but have to draw a card with a curse and you get all sorts of weird restrictions like number of lines, draw with other hand, draw with eyes closed, etc.", "Party game", "Art & color"],
-  ["2026-08-05", "A game where you have to phase between dimensions to move past puzzles and make progress. Moving in one world moves you in the other, and your direction and velocity are maintained.", "Puzzle", "Magic"],
-  ["2026-08-05", "You're a fall god/goddess and have to paint the forest with colors.", "Toy", "Art & color"],
-  ["2026-08-05", "You're a druid and have to shape shift as different animals to traverse a dangerous landscape without being noticed by the humans or animals. At first, maybe going under water is safe for transforming, but then there's more aquatic wildlife and you have to cause distractions so that you're not seen.", "RPG", "Animals"],
-  ["2026-08-05", "King of the dog park. Chase, growl, and hump your way to dog park royalty.", "Party game", "Dogs"],
-  ["2026-08-05", "An RPG but you're a mouse in a mansion just trying to find your way to the kitchen and fridge for cheese. You have to face bosses like the cat, a robot vacuum, and finally a pest control to claim your prize.", "RPG", "Animals"],
-  ["2026-08-05", "Starts as a faming sim, but you can control the weather. You've been exiled from a long line of cloudmancers and now you just want a simple life growing veggies, but when you draw too much attention with your weather patterns and prosperous farm, trouble finds you!", "Simulator", "Weather"],
-  ["2026-08-05", "You're a dandelion. After a strong gust of wind scatters you from your home, you go on an adventure trying to find a new place to take root.", "Platformer", "Plants"],
-  ["2026-08-05", "An escape room, but you're stuck with NPCs who are aggressively NPC looping and glitching and you have to figure out why and return them to normal to escape.", "Escape room", "Identity"],
-  ["2026-08-05", "An RPG where typing the true name of the monster weakens it or exposes a weakness. Maybe typing the type of creature/monster enables you to see their name. But it costs you time/turns while you are being attacked.", "RPG", "Language"],
-  ["2026-08-05", "Pokemon snap but for cryptids and supernatural. Cute and safe.", "Simulator", "Cryptids"],
-  ["2026-08-06", "You're a guardian angel, but a biblically accurate angel. And have to use your horrifying appearance to protect and improve your charge's life.", "Simulator", "Gods & myth"],
-  ["2026-08-06", "Game where you can reverse the last 15 seconds at any point to solve puzzles and fight monsters.", "Puzzle", "Time"],
-  ["2026-08-06", "Platformer where the monsters' locations are tied to your location, so you can step back and force them to step back.", "Platformer", "Monsters"],
-  ["2026-08-06", "It's a puzzle game. And it starts out with just a single circle on a black screen.", "Puzzle", "Art & color"],
-  ["2026-08-06", "A game about balancing a scale, but every stage gets more and more ridiculous with the size of things you've comparing until you're weighing multiple black holes.", "Puzzle", "Space"],
-  ["2026-08-06", "You have to blow out birthday cake candles, but it's individual candle and you have to do it all in one breath. Each \"year\" gets more complex. Early and late on your breath capacity is shit, but maybe you get other abilities as you age.", "Toy", "Time"],
-  ["2026-08-06", "Do you want pie? You have to divide slices of pie as close to even as possible for the number of people requesting. They don't have to be normal slices but the area/volume has to be as similar as possible across the slices.", "Puzzle", "Food"],
-  ["2026-08-06", "Tic tac toe but you're trying to build a bridge across a chasm in a war setting to get to the other side first.", "Tabletop", "Architecture"],
-  ["2026-08-06", "Tic Tac Toe but your pieces have hidden conditions that can cause them to either flip or flip your opponents pieces to your side.", "Tabletop", "Identity"],
-  ["2026-08-06", "Apples to apples but you have a limited time to draw a response that answers a question and the judge picks the best response.", "Party game", "Art & color"],
-  ["2026-08-07", "You have to dive underwater to uncover artifacts of a lost civilization and enraged god.", "Puzzle", "Ancient history"],
-  ["2026-08-07", "You have to teach a troupe of dogs to dance and get an audience score based off the moves and how well the dogs do them during the performance based on your training. Like doggy so you think you can dance or dancing with the stars.", "Simulator", "Dogs"],
-  ["2026-08-07", "Duck duck goose. Duck beauty pageant and you're an undercover goose. Set of stages/minigames for showing you can walk like a duck, quack like a duck, and properly disguise yourself to look like a duck.", "Party game", "Birds"],
-  ["2026-08-07", "Fantasy Sim City or Civ where you pick a race (elves, dwarves, tieflings, etc.) and have access to different types of architecture and are building towards different wonders.", "Simulator", "Architecture"],
-  ["2026-08-07", "You own a monster pet daycare (E.g., pets are slimes, bats, rock golems, etc). Idle game where the pets develop relationships and you can care for/groom them. If you don't give them enough attention, their owner takes them away.", "Idle/incremental", "Monsters"],
-  ["2026-08-07", "Writing on the wall. You wake up each morning to a cryptic message on your bedroom wall that tells you how to avoid that day's disaster.", "Puzzle", "Language"],
-  ["2026-08-07", "A game where all the NPCs lie to you and can't tell you the truth. You have to uncover what is causing the truth curse.", "RPG", "Language"],
-  ["2026-08-07", "Hammer time. You have to solve all sorts of problems/puzzles but only have a hammer.", "Puzzle", "Architecture"],
-  ["2026-08-07", "Sweet Home Builder. You build a house but you only have candy and sweets to use for the assembly.", "Simulator", "Food"],
-  ["2026-08-07", "You're a tornado and have to destroy as much as possible before you disappear. Bonus points for cows.", "Simulator", "Weather"],
-  ["2026-08-08", "For a word, a number, a color. A puzzle game with the underlying symbolism of trying to fall asleep where you are constantly trying to go towards/into the black, but black takes different forms. Black, #000000,  gb(0, 0, 0).", "Puzzle", "Dreams & sleep"],
-  ["2026-08-08", "Are you awake? An inception style game where you have to figure out if you're dreaming and how to wake from the current dream.", "Puzzle", "Dreams & sleep"],
-  ["2026-08-08", "Nightmare fuel. Monster builder where you try to make them as creepy as possible to give kids nightmares. You get a cutscene, score, and can share a gif of your monster with others.", "Toy", "Monsters"],
-  ["2026-08-08", "There's a bunch of door knobs and you have to find the right one to twist. You get more clues like keys and it gets more dangerous to chose the wrong one.", "Escape room", "Architecture"],
-  ["2026-08-08", "One player is a ghost and the other is in the haunted house. The ghost has to try to lead the other player to correctly guess who killed them with what where before the end of a time limit using only things like light flickering and object nudging/falling down.", "Party game", "Ghosts"],
-  ["2026-08-08", "There's a character creator but then all the NPCs and other characters look like you.", "RPG", "Identity"],
-  ["2026-08-08", "A game where you are a bird and get to choose your shape/coloring and customize your call. And then your goal is to find bird feeders while also avoiding windows and predators.", "Simulator", "Birds"],
-  ["2026-08-08", "You're a little fairy who dreams of being a superhero, so you try to fight crime and save people by doing petty little things. The more people believe in you, the stronger you get.", "Platformer", "Heroes & crime"],
-  ["2026-08-08", "Driving/racing game except you're a cart driver in a fantasy setting.", "Racing", "Magic"],
-  ["2026-08-08", "A game where you have a opposite stats and different skills during day and night.", "RPG", "Time"],
-  ["2026-08-09", "You have to collect pieces of colored glass to repair the stained glass sky.", "Puzzle", "Art & color"],
-  ["2026-08-09", "A game where you find yourself in different fairytales as the villain and have to find a way to change your fate to get a happy ending.", "RPG", "Fairytale"],
-];
+// Historical ideas live in the private dailyten-data repo, not here.
 
 function pad(n) { return n.toString().padStart(2, "0"); }
 function dateStr(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
@@ -549,23 +449,6 @@ function App() {
         const vres = await ghGetFile(username, token, "vocab.json");
 
         const initial = { [currentYear]: cy.data || [] };
-
-        const seedYear = "2026";
-        let seedIdeas = seedYear === currentYear ? cy.data : (await ghGetFile(username, token, `${seedYear}.json`)).data;
-
-        if (seedIdeas === null) {
-          const dayCounters = {};
-          const seeded = IMPORTED.map(([date, txt, f, th], idx) => {
-            const n = (dayCounters[date] = (dayCounters[date] || 0) + 1);
-            return {
-              id: `seed_${idx}`, text: txt,
-              capturedAt: `${date}T20:${pad(n)}:00.000Z`,
-              creditedDate: date, form: f, theme: th, players: "",
-            };
-          });
-          await ghPutFile(username, token, `${seedYear}.json`, seeded, null, "Import from Notion archive");
-          initial[seedYear] = seeded;
-        }
 
         setIdeasByYear(initial);
         if (vres.data) {
